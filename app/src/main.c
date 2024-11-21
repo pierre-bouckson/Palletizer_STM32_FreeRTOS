@@ -14,43 +14,65 @@
 // Static functions
 static void SystemClock_Config(void);
 
+// FreeRTOS tasks
+void vTask1 	(void *pvParameters);
+void vTask2 	(void *pvParameters);
 
-uint8_t      button_irq = 0;
-uint8_t      timebase_irq = 0;
-uint8_t		 console_rx_byte[10];
-uint8_t	     console_rx_irq = 0;
-uint8_t	 	rx_dma_buffer[8];
-uint8_t		rx_dma_irq = 0;
-uint16_t	adc_dma_buffer[3];
-uint8_t 	rtc_irq = 0;
-uint16_t	in, out;
+uint8_t button_irq;
+uint8_t timebase_irq;
+uint8_t	console_rx_irq;
+uint8_t	rx_dma_irq;
+uint8_t	rtc_irq;
+uint8_t  console_rx_byte[10];
+uint8_t rx_dma_buffer[8];
 
 // Main function
 int main()
 {
-	uint32_t	i;
-	// Configure clock for 48MHz operation
+	// Configure System Clock
 	SystemClock_Config();
-	// Initialize LED and User button
+	// Initialize LED pin
 	BSP_LED_Init();
-	BSP_PB_Init();
-	// Initialize Console
+	// Initialize Debug Console
 	BSP_Console_Init();
-	my_printf("Console Ready!\r\n");
-	my_printf("SYSCLK = %d\r\n", SystemCoreClock);
+	// Create Tasks
+	xTaskCreate(vTask1, "Task_1", 256, NULL, 1, NULL);
+	xTaskCreate(vTask2, "Task_2", 256, NULL, 2, NULL);
+	// Start the Scheduler
+	vTaskStartScheduler();
 	while(1)
 	{
-		// LED toggle
-		BSP_LED_Toggle();
-		// User-Button test
-		if(BSP_PB_GetState() == 1)
-		{
-			my_printf("#");
-		}
-		// Wait
-		for(i=0; i<1000000; i++);
+		// The program should never be here...
 	}
 }
+
+
+/*
+ *	Task1 toggles LED every 300ms
+ */
+void vTask1 (void *pvParameters)
+{
+	while(1)
+	{
+		BSP_LED_Toggle();
+		vTaskDelay(300);
+	}
+}
+/*
+ *	Task2 sends a message to console every 1s
+ */
+void vTask2 (void *pvParameters)
+{
+	uint16_t count;
+	count = 0;
+	while(1)
+	{
+		my_printf("Hello %2d from task2\r\n", count);
+		count++;
+		vTaskDelay(1000);
+	}
+}
+
 
 static void SystemClock_Config()
 {
