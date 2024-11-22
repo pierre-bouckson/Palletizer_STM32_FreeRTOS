@@ -68,7 +68,7 @@ extern uint32_t    SystemCoreClock;
 #define configUSE_SB_COMPLETED_CALLBACK             0
 /* Run time and task stats gathering related definitions. */
 #define configGENERATE_RUN_TIME_STATS               0
-#define configUSE_TRACE_FACILITY                    0
+#define configUSE_TRACE_FACILITY                    1
 #define configUSE_STATS_FORMATTING_FUNCTIONS        0
 /* Co-routine related definitions. */
 #define configUSE_CO_ROUTINES                       0
@@ -110,4 +110,9 @@ extern uint32_t    SystemCoreClock;
 #define xPortPendSVHandler                          PendSV_Handler
 #define xPortSysTickHandler                         SysTick_Handler
 /* A header file that defines trace macro can be included here. */
+/* Integrates the Tracealyzer recorder with FreeRTOS */
+#if ( configUSE_TRACE_FACILITY == 1 )
+#include "trcRecorder.h"
+#endif
+
 #endif /* FREERTOS_CONFIG_H */
