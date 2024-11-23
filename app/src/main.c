@@ -15,6 +15,9 @@ static void SystemClock_Config(void);
 // FreeRTOS tasks
 void vTask1 	(void *pvParameters);
 void vTask2 	(void *pvParameters);
+// Kernel objects
+xSemaphoreHandle xSem;
+
 
 uint8_t button_irq;
 uint8_t timebase_irq;
@@ -39,12 +42,14 @@ int main()
 	my_printf("Console ready!\r\n");
 
 	// Start Trace Recording
-	xTraceEnable(TRC_START);		// <- Recorder starts now
-
+	xTraceEnable(TRC_START);
+	// Create Semaphore object (this is not a 'give')
+	xSem = xSemaphoreCreateBinary();
+	// Give a nice name to the Semaphore in the trace recorder
+	vTraceSetSemaphoreName(xSem, "xSEM");
 	// Create Tasks
 	xTaskCreate(vTask1, "Task_1", 256, NULL, 1, NULL);
 	xTaskCreate(vTask2, "Task_2", 256, NULL, 2, NULL);
-
 	// Start the Scheduler
 	vTaskStartScheduler();
 
@@ -57,35 +62,45 @@ int main()
 
 
 /*
- *	Task1 toggles LED every 30ms
+ *	Task_1 toggles LED every 10ms
  */
 void vTask1 (void *pvParameters)
 {
+	uint16_t	count;
+	count = 0;
 	while(1)
 	{
-		uint32_t i;
-
-
 		BSP_LED_Toggle();
-		for(i=0; i<100000; i++);	// <-- Stupid loop now here
+		count++;
+		// Release semaphore every 10 count
+		if (count == 10)
+		{
+			xSemaphoreGive(xSem);    // <-- This is where the semaphore is given
+			count = 0;
+		}
+		// Wait
+		vTaskDelay(10);
 	}
 }
 
+
 /*
- *	Task2 sends a message to console every 100ms
+ *	Task_2 sends a message to console when xSem semaphore is given
  */
 void vTask2 (void *pvParameters)
 {
-	uint16_t count;
-	uint32_t i;
-
+	uint16_t 	count;
 	count = 0;
-
+	// Take the semaphore once to make sure it is empty
+	xSemaphoreTake(xSem, 0);
 	while(1)
 	{
-		my_printf("Hello %2d from task2\r\n", count);
+		// Wait for Semaphore endlessly
+		xSemaphoreTake(xSem, portMAX_DELAY);    //<-- This is where the semaphore is taken
+		// Reaching this point means that semaphore has been taken successfully
+        // Display console message
+        my_printf("Hello %2d from task2\r\n", count);
 		count++;
-		vTaskDelay(100);
 	}
 }
 
