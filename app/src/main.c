@@ -63,26 +63,27 @@ int main()
 
 
 /*
- *	Task_1 toggles LED every 10ms
+ *	Task1 toggles LED every 10ms
  */
 void vTask1 (void *pvParameters)
 {
+	portTickType	xLastWakeTime;
 	uint16_t	count;
 	count = 0;
+	// Initialize timing
+	xLastWakeTime = xTaskGetTickCount();
 	while(1)
 	{
-		if(BSP_PB_GetState()==0)
-		{
-			BSP_LED_Toggle();
-			count++;
-		}
+		BSP_LED_Toggle();
+		count++;
+		// Release semaphore every 10 count
 		if (count == 10)
 		{
-			xSemaphoreGive(xSem);    // <-- This is where the semaphore is given
+			xSemaphoreGive(xSem);
 			count = 0;
 		}
-		// Wait
-		vTaskDelay(10);
+		// Wait here for 10ms since last wakeup
+		vTaskDelayUntil (&xLastWakeTime, (10/portTICK_RATE_MS));
 	}
 }
 
