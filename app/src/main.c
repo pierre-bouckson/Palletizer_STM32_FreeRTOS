@@ -63,8 +63,11 @@ void vTask1 (void *pvParameters)
 {
 	while(1)
 	{
+		uint32_t i;
+
+
 		BSP_LED_Toggle();
-		vTaskDelay(30);		// <-- Change here
+		for(i=0; i<100000; i++);	// <-- Stupid loop now here
 	}
 }
 
@@ -74,13 +77,15 @@ void vTask1 (void *pvParameters)
 void vTask2 (void *pvParameters)
 {
 	uint16_t count;
+	uint32_t i;
+
 	count = 0;
 
 	while(1)
 	{
 		my_printf("Hello %2d from task2\r\n", count);
 		count++;
-		vTaskDelay(100);	// <-- Change here
+		vTaskDelay(100);
 	}
 }
 
