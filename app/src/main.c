@@ -63,54 +63,42 @@ int main()
 
 
 /*
- *	Task1 toggles LED every 10ms
+ *	Task_1
+ *
+ *	- Prints current time (OS tick) every 1s
+ *	- Using precise period delay
  */
 void vTask1 (void *pvParameters)
 {
-	portTickType	xLastWakeTime;
-	uint16_t	count;
-	count = 0;
+	portTickType	now, xLastWakeTime;
+	uint16_t		n = 0;
 	// Initialize timing
 	xLastWakeTime = xTaskGetTickCount();
 	while(1)
 	{
-		BSP_LED_Toggle();
-		count++;
-		// Release semaphore every 10 count
-		if (count == 10)
-		{
-			xSemaphoreGive(xSem);
-			count = 0;
-		}
-		// Wait here for 10ms since last wakeup
-		vTaskDelayUntil (&xLastWakeTime, (10/portTICK_RATE_MS));
+		n++;
+		now = xTaskGetTickCount();
+		my_printf("\r\n Task_1 #%2d @tick = %6d ", n, now);
+		// Wait here for 1s since last wake-up
+		vTaskDelayUntil (&xLastWakeTime, (1000/portTICK_RATE_MS));
 	}
 }
-
-
 /*
- *	Task_2 sends a message to console when xSem semaphore is given
+ *	Task_2
+ *
+ *	- Toggles LED and prints '.' every 100ms
+ *	- Internal (blocking) loop if button is pressed
  */
 void vTask2 (void *pvParameters)
 {
-	portBASE_TYPE   xStatus;
-	uint16_t 	count;
-	count = 0;
-	// Take the semaphore once to make sure it is empty
-	xSemaphoreTake(xSem, 0);
 	while(1)
 	{
-		xStatus = xSemaphoreTake(xSem, 2000);
-		// Wait for Semaphore endlessly
-		if(xStatus==pdPASS)
-		{
-			my_printf("Hello %2d from task2\r\n", count);
-			count++;
-		}
-		else
-		{
-			my_printf("Hey! Where is my semaphore?\r\n");
-		}
+		// Loop here if button is pressed
+		while(BSP_PB_GetState()==1);
+		// Otherwise toggle LED and suspend task for 100ms
+		BSP_LED_Toggle();
+		my_printf(".");
+		vTaskDelay(100);
 	}
 }
 
