@@ -5,14 +5,10 @@
  *      Author: Laurent
  */
 
+
+
+
 #include "main.h"
-
-// Static functions
-static void SystemClock_Config	(void);
-
-// FreeRTOS tasks
-void vTask1 		(void *pvParameters);
-void vTask2 		(void *pvParameters);
 
 uint8_t timebase_irq;
 uint8_t  console_rx_byte[10];
@@ -20,6 +16,14 @@ uint8_t	console_rx_irq;
 uint8_t	rx_dma_irq;
 uint8_t	rtc_irq;
 uint8_t rx_dma_buffer[8];
+
+
+// Static functions
+static void SystemClock_Config	(void);
+
+// FreeRTOS tasks
+void vTask1 		(void *pvParameters);
+void vTask2 		(void *pvParameters);
 
 // Kernel objects
 xSemaphoreHandle xSem;
@@ -33,27 +37,21 @@ int main()
 	// Initialize LED pin
 	BSP_LED_Init();
 
-	// Initialize the user Push-Button
-	BSP_PB_Init();
-
 	// Initialize Debug Console
 	BSP_Console_Init();
 
-	// Initialize NVIC
-	BSP_NVIC_Init();        // <-- Configure NVIC here
-
 	// Start Trace Recording
 	vTraceEnable(TRC_START);
-
-	// Create Tasks
-	xTaskCreate(vTask1, 		"Task_1", 		256, NULL, 1, NULL);
-	xTaskCreate(vTask2, 		"Task_2", 		256, NULL, 2, NULL);
 
 	// Create Semaphore object
 	xSem = xSemaphoreCreateBinary();
 
 	// Give a nice name to the Semaphore in the trace recorder
 	vTraceSetSemaphoreName(xSem, "xSEM");
+
+	// Create Tasks
+	xTaskCreate(vTask1, 	"Task_1",	256, NULL, 1, NULL);
+	xTaskCreate(vTask2, 	"Task_2",	256, NULL, 2, NULL);
 
 	// Start the Scheduler
 	vTaskStartScheduler();
@@ -86,6 +84,14 @@ void vTask2 (void *pvParameters)
 {
 	portBASE_TYPE	xStatus;
 
+	// Initialize the user Push-Button
+	BSP_PB_Init();
+
+	// Set priority for EXTI line 4 to 15, and enable interrupt
+	NVIC_SetPriority(EXTI4_15_IRQn, configMAX_API_CALL_INTERRUPT_PRIORITY + 1);
+	NVIC_EnableIRQ(EXTI4_15_IRQn);
+
+	// Now enter the task loop
 	while(1)
 	{
 		// Wait here for Semaphore with 100ms timeout
@@ -95,7 +101,6 @@ void vTask2 (void *pvParameters)
 		if (xStatus == pdPASS)
 		{
 			// The semaphore was taken as expected
-
 			// Display console message
 			my_printf("#");
 		}
@@ -103,12 +108,13 @@ void vTask2 (void *pvParameters)
 		else
 		{
 			// The 100ms timeout elapsed without Semaphore being taken
-
 			// Display another message
 			my_printf(".");
 		}
 	}
 }
+
+
 static void SystemClock_Config()
 {
 	uint32_t	HSE_Status;
