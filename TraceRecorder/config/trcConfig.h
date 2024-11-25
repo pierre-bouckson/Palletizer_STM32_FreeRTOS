@@ -47,7 +47,7 @@ extern "C" {
 
 #define TRC_CFG_SCHEDULING_ONLY             0
 #define TRC_CFG_INCLUDE_MEMMANG_EVENTS      0
-#define TRC_CFG_INCLUDE_USER_EVENTS         0
+#define TRC_CFG_INCLUDE_USER_EVENTS         1
 #define TRC_CFG_INCLUDE_ISR_TRACING         0
 #define TRC_CFG_INCLUDE_READY_EVENTS        1
 #define TRC_CFG_INCLUDE_OSTICK_EVENTS       0

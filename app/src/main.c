@@ -27,6 +27,9 @@ uint8_t	rtc_irq;
 uint8_t  console_rx_byte[10];
 uint8_t rx_dma_buffer[8];
 
+// Trace User Events Channels
+traceString ue1, ue2;
+
 // Main function
 int main()
 {
@@ -51,6 +54,9 @@ int main()
 	// Create Tasks
 	xTaskCreate(vTask1, "Task_1", 256, NULL, 1, NULL);
 	xTaskCreate(vTask2, "Task_2", 256, NULL, 2, NULL);
+	// Register the Trace User Event Channels
+	ue1 = xTraceRegisterString("count");
+	ue2 = xTraceRegisterString("msg");
 	// Start the Scheduler
 	vTaskStartScheduler();
 
@@ -63,42 +69,74 @@ int main()
 
 
 /*
- *	Task_1
- *
- *	- Prints current time (OS tick) every 1s
- *	- Using precise period delay
+ *	Task_1 toggles LED every 10ms
  */
 void vTask1 (void *pvParameters)
 {
-	portTickType	now, xLastWakeTime;
-	uint16_t		n = 0;
+	portTickType  xLastWakeTime;
+	uint16_t      count = 0;
+
 	// Initialize timing
 	xLastWakeTime = xTaskGetTickCount();
+
 	while(1)
 	{
-		n++;
-		now = xTaskGetTickCount();
-		my_printf("\r\n Task_1 #%2d @tick = %6d ", n, now);
-		// Wait here for 1s since last wake-up
-		vTaskDelayUntil (&xLastWakeTime, (1000/portTICK_RATE_MS));
+		// Toggle LED only if button is released
+		if (!BSP_PB_GetState())
+		{
+			BSP_LED_Toggle();
+			count++;
+		}
+
+		// Release semaphore every 10 count
+		if (count == 10)
+		{
+			xSemaphoreGive(xSem);
+			count = 0;
+		}
+
+		// Send count value into trace UEC
+		vTracePrintF(ue1, "%d", count);
+
+		// Wait here for 10ms since last wakeup
+		vTaskDelayUntil (&xLastWakeTime, (10/portTICK_RATE_MS));
 	}
 }
+
+
 /*
- *	Task_2
- *
- *	- Toggles LED and prints '.' every 100ms
- *	- Internal (blocking) loop if button is pressed
+ *	Task_2 sends a message to console when xSem semaphore is given
  */
 void vTask2 (void *pvParameters)
 {
+	portBASE_TYPE  xStatus;
+	uint16_t       count = 0;
+
+	// Take the semaphore once to make sure it is empty
+	xSemaphoreTake(xSem, 0);
+
 	while(1)
 	{
-		// Loop here if button is pressed
-		while(BSP_PB_GetState()==1);
-		// Otherwise toggle LED and suspend task for 100ms
-		BSP_LED_Toggle();
-		my_printf(".");
-		vTaskDelay(100);
+		// Wait here for Semaphore with 2s timeout
+		xStatus = xSemaphoreTake(xSem, 2000);
+
+		// Test the result of the take attempt
+		if (xStatus == pdPASS)
+		{
+			// The semaphore was taken as expected
+			vTracePrint(ue2, "Yep!");
+
+			// Display console message
+			my_printf("Hello %2d from task2\r\n", count);
+			count++;
+		}
+
+		else
+		{
+			// The 2s timeout elapsed without Semaphore being taken
+			// Display another message
+			my_printf("Hey! Where is my semaphore?\r\n");
+		}
 	}
 }
 
