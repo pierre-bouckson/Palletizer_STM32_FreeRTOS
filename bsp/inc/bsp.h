@@ -7,6 +7,7 @@
 #ifndef INC_BSP_H_
 #define INC_BSP_H_
 #include "stm32f0xx.h"
+#include "FreeRTOSConfig.h"
 /*
  * LED driver functions
  */
@@ -23,4 +24,6 @@ uint8_t     BSP_PB_GetState    (void);
  * Debug Console init
  */
 void        BSP_Console_Init   (void);    // Simple, with no DMA on RX channel
+void 		BSP_NVIC_Init();
+
 #endif /* INC_BSP_H_ */
