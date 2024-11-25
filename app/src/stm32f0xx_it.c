@@ -101,7 +101,7 @@ void HardFault_Handler(void)
 
 /**
   * This function handles EXTI line 13 interrupt request.
-  */
+
 extern uint8_t button_irq;
 
 void EXTI4_15_IRQHandler()
@@ -120,9 +120,9 @@ void EXTI4_15_IRQHandler()
 	}
 }
 
-/*
+
  * This function handles TIM6 interrupts
- */
+
 
 extern uint8_t timebase_irq;
 
@@ -139,9 +139,9 @@ void TIM6_DAC_IRQHandler()
 	}
 }
 
-/*
+
  * This function handles USART2 interrupts
- */
+
 
 extern uint8_t  console_rx_byte[10];
 extern uint8_t	console_rx_irq;
@@ -160,9 +160,9 @@ void USART2_IRQHandler()
 }
 
 
-/*
+
  * This function handles DMA1 Channel 5 (USART2 RX) interrupts
- */
+
 extern uint8_t	rx_dma_irq;
 void DMA1_Channel4_5_6_7_IRQHandler()
 {
@@ -184,9 +184,9 @@ void DMA1_Channel4_5_6_7_IRQHandler()
 	}
 }
 
-/*
+
  * This function handles RTC interrupts
- */
+
 
 extern uint8_t	rtc_irq;
 
@@ -205,3 +205,4 @@ void RTC_IRQHandler()
 		rtc_irq = 1;
 	}
 }
+*/

@@ -129,7 +129,7 @@ uint8_t BSP_PB_GetState()
  * 1 start - 8-bit - 1 stop
  * TX -> PA2 (AF1)
  * RX -> PA3 (AF1)
- */
+*/
 
 extern uint8_t rx_dma_buffer[8];
 void BSP_Console_Init()

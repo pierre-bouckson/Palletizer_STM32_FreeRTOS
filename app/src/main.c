@@ -1,65 +1,54 @@
 /*
  * main.c
  *
- *  Created on: 5 août 2017
+ *  Created on: 24/02/2018
  *      Author: Laurent
  */
 
-
 #include "main.h"
 
+uint8_t rx_dma_buffer[8];
+
+// Kernel Objects
+xSemaphoreHandle xConsoleMutex;
 
 // Static functions
-static void SystemClock_Config(void);
+static void SystemClock_Config	(void);
 
 // FreeRTOS tasks
 void vTask1 	(void *pvParameters);
 void vTask2 	(void *pvParameters);
-// Kernel objects
-xSemaphoreHandle xSem;
 
-
-uint8_t button_irq;
-uint8_t timebase_irq;
-uint8_t	console_rx_irq;
-uint8_t	rx_dma_irq;
-uint8_t	rtc_irq;
-uint8_t  console_rx_byte[10];
-uint8_t rx_dma_buffer[8];
-
-// Trace User Events Channels
-traceString ue1, ue2;
-
-// Main function
+// Main program
 int main()
 {
 	// Configure System Clock
 	SystemClock_Config();
 
-	// Initialize LED & Button pin
+	// Initialize LED pin
 	BSP_LED_Init();
-	BSP_PB_Init();
 
+	// Initialize the user Push-Button
+	BSP_PB_Init();
 
 	// Initialize Debug Console
 	BSP_Console_Init();
-	my_printf("Console ready!\r\n");
 
 	// Start Trace Recording
-	xTraceEnable(TRC_START);
-	// Create Semaphore object (this is not a 'give')
-	xSem = xSemaphoreCreateBinary();
-	// Give a nice name to the Semaphore in the trace recorder
-	vTraceSetSemaphoreName(xSem, "xSEM");
+	vTraceEnable(TRC_START);
+
+	// Create a Mutex for accessing the console
+	xConsoleMutex = xSemaphoreCreateMutex();
+
+	// Give a nice name to the Mutex in the trace recorder
+	vTraceSetMutexName(xConsoleMutex, "Console Mutex");
+
 	// Create Tasks
 	xTaskCreate(vTask1, "Task_1", 256, NULL, 1, NULL);
 	xTaskCreate(vTask2, "Task_2", 256, NULL, 2, NULL);
-	// Register the Trace User Event Channels
-	ue1 = xTraceRegisterString("count");
-	ue2 = xTraceRegisterString("msg");
+
 	// Start the Scheduler
 	vTaskStartScheduler();
-
 
 	while(1)
 	{
@@ -67,79 +56,45 @@ int main()
 	}
 }
 
-
 /*
- *	Task_1 toggles LED every 10ms
+ *	Task_1
  */
 void vTask1 (void *pvParameters)
 {
-	portTickType  xLastWakeTime;
-	uint16_t      count = 0;
-
-	// Initialize timing
-	xLastWakeTime = xTaskGetTickCount();
-
 	while(1)
 	{
-		// Toggle LED only if button is released
-		if (!BSP_PB_GetState())
-		{
-			BSP_LED_Toggle();
-			count++;
-		}
+		// Take Mutex
+		xSemaphoreTake(xConsoleMutex, portMAX_DELAY);
 
-		// Release semaphore every 10 count
-		if (count == 10)
-		{
-			xSemaphoreGive(xSem);
-			count = 0;
-		}
+		// Send message to console
+		my_printf("With great power comes great responsibility\r\n");
 
-		// Send count value into trace UEC
-		vTracePrintF(ue1, "%d", count);
+		// Release Mutex
+		xSemaphoreGive(xConsoleMutex);
 
-		// Wait here for 10ms since last wakeup
-		vTaskDelayUntil (&xLastWakeTime, (10/portTICK_RATE_MS));
+		vTaskDelay(20);
 	}
 }
 
-
 /*
- *	Task_2 sends a message to console when xSem semaphore is given
+ *	Task_2
  */
 void vTask2 (void *pvParameters)
 {
-	portBASE_TYPE  xStatus;
-	uint16_t       count = 0;
-
-	// Take the semaphore once to make sure it is empty
-	xSemaphoreTake(xSem, 0);
-
 	while(1)
 	{
-		// Wait here for Semaphore with 2s timeout
-		xStatus = xSemaphoreTake(xSem, 2000);
+		// Take Mutex
+		xSemaphoreTake(xConsoleMutex, portMAX_DELAY);
 
-		// Test the result of the take attempt
-		if (xStatus == pdPASS)
-		{
-			// The semaphore was taken as expected
-			vTracePrint(ue2, "Yep!");
+		// Send message to console
+		my_printf("#");
 
-			// Display console message
-			my_printf("Hello %2d from task2\r\n", count);
-			count++;
-		}
+		// Release Mutex
+		xSemaphoreGive(xConsoleMutex);
 
-		else
-		{
-			// The 2s timeout elapsed without Semaphore being taken
-			// Display another message
-			my_printf("Hey! Where is my semaphore?\r\n");
-		}
+		vTaskDelay(1);
 	}
 }
-
 
 static void SystemClock_Config()
 {
