@@ -33,7 +33,7 @@ extern "C" {
  * recording is stopped when the buffer becomes full. This is useful for
  * recording events following a specific state, e.g., the startup sequence.
  */
-#define TRC_CFG_SNAPSHOT_MODE TRC_SNAPSHOT_MODE_RING_BUFFER
+#define TRC_CFG_SNAPSHOT_MODE TRC_SNAPSHOT_MODE_STOP_WHEN_FULL
 
 /**
  * @def TRC_CFG_EVENT_BUFFER_SIZE
