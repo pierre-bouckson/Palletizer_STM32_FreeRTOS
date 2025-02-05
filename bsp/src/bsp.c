@@ -6,6 +6,7 @@
  */
 
 #include "bsp.h"
+#include "factory_io.h"
 
 /*
  * BSP_LED_Init()
@@ -129,9 +130,9 @@ uint8_t BSP_PB_GetState()
  * 1 start - 8-bit - 1 stop
  * TX -> PA2 (AF1)
  * RX -> PA3 (AF1)
-*/
+ */
+extern uint8_t tx_dma_buffer[50];
 
-extern uint8_t rx_dma_buffer[8];
 void BSP_Console_Init()
 {
 	// Enable GPIOA clock
@@ -158,41 +159,86 @@ void BSP_Console_Init()
 	//
 	// With OVER8=1 and Fck=48MHz, USARTDIV = 2*48E6/115200 = 833.3333
 	// BRR = 833 -> Actual BaudRate = 115246.0984 -> 0.04% error (better choice)
+
 	USART2->CR1 |= USART_CR1_OVER8;
 	USART2->BRR = 833;
+//	USART2->CR1 &= ~USART_CR1_OVER8;
+//	USART2->BRR = 5000;
+
+
 	// Enable both Transmitter and Receiver
 	USART2->CR1 |= USART_CR1_TE | USART_CR1_RE;
 	// Enable interrupt on RXNE event (disabled with DMA)
-	// USART2->CR1 |= USART_CR1_RXNEIE;
+	//USART2->CR1 |= USART_CR1_TCIE;
 	// Setup RX on DMA Channel 5
+
+
 	// Start DMA clock
 	RCC->AHBENR |= RCC_AHBENR_DMA1EN;
+	// Reset DMA1 Channel 4 configuration
+	DMA1_Channel4->CCR = 0x00000000;
+	// Set direction Peripheral -> Memory
+	DMA1_Channel4->CCR |= DMA_CCR_DIR;
+
+	// Peripheral is USART2 TDR
+	DMA1_Channel4->CPAR = (uint32_t)&USART2->TDR;
+
+	// Peripheral data size is 8-bit (byte)
+	DMA1_Channel4->CCR |= (0x00 <<DMA_CCR_PSIZE_Pos);
+
+	// Disable auto-increment Peripheral address
+	DMA1_Channel4->CCR &= ~DMA_CCR_PINC;
+
+	// Memory is tx_dma_buffer
+	DMA1_Channel4->CMAR = (uint32_t)tx_dma_buffer;
+	// Memory data size is 8-bit (byte)
+	DMA1_Channel4->CCR |= (0x00 <<DMA_CCR_MSIZE_Pos);
+	// Enable auto-increment Memory address
+	DMA1_Channel4->CCR |= DMA_CCR_MINC;
+
+	// Enable DMA TC interrupts
+	DMA1_Channel4->CCR |= DMA_CCR_TCIE;
+
+
+
 	// Reset DMA1 Channel 5 configuration
 	DMA1_Channel5->CCR = 0x00000000;
+
 	// Set direction Peripheral -> Memory
 	DMA1_Channel5->CCR &= ~DMA_CCR_DIR;
+
 	// Peripheral is USART2 RDR
 	DMA1_Channel5->CPAR = (uint32_t)&USART2->RDR;
+
 	// Peripheral data size is 8-bit (byte)
 	DMA1_Channel5->CCR |= (0x00 <<DMA_CCR_PSIZE_Pos);
+
 	// Disable auto-increment Peripheral address
 	DMA1_Channel5->CCR &= ~DMA_CCR_PINC;
+
 	// Memory is rx_dma_buffer
 	DMA1_Channel5->CMAR = (uint32_t)rx_dma_buffer;
+
 	// Memory data size is 8-bit (byte)
 	DMA1_Channel5->CCR |= (0x00 <<DMA_CCR_MSIZE_Pos);
+
 	// Enable auto-increment Memory address
 	DMA1_Channel5->CCR |= DMA_CCR_MINC;
+
 	// Set Memory Buffer size
-	DMA1_Channel5->CNDTR = 8;
+	DMA1_Channel5->CNDTR = FRAME_LENGTH;
+
 	// DMA mode is circular
 	DMA1_Channel5->CCR |= DMA_CCR_CIRC;
-	// Enable DMA HT & TC interrupts
-	DMA1_Channel5->CCR |= DMA_CCR_HTIE | DMA_CCR_TCIE;
+
 	// Enable DMA1 Channel 5
 	DMA1_Channel5->CCR |= DMA_CCR_EN;
+
 	// Enable USART2 DMA Request on RX
 	USART2->CR3 |= USART_CR3_DMAR;
+
+
+
 	// Enable USART2
 	USART2->CR1 |= USART_CR1_UE;
 }
@@ -203,6 +249,10 @@ void BSP_Console_Init()
  */
 void BSP_NVIC_Init()
 {
-    // Remove interrupt channel settings from here
+	// Set maximum priority for EXTI line 4 to 15 interrupts
+	//NVIC_SetPriority(USART2_IRQn, 0);
+
+	// Enable EXTI line 4 to 15 (user button on line 13) interrupts
+	//NVIC_EnableIRQ(USART2_IRQn);
 }
 

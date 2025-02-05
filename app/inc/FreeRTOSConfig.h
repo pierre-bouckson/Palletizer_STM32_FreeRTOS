@@ -35,7 +35,7 @@ extern uint32_t    SystemCoreClock;
 #define configUSE_TICKLESS_IDLE                     0
 #define configCPU_CLOCK_HZ                          ( SystemCoreClock )
 #define configTICK_RATE_HZ                          ( ( TickType_t ) 1000 )
-#define configMAX_PRIORITIES                        5
+#define configMAX_PRIORITIES                        8
 #define configMINIMAL_STACK_SIZE                    ( ( uint16_t ) 128 )
 #define configMAX_TASK_NAME_LEN                     16
 #define configUSE_16_BIT_TICKS                      0
@@ -47,7 +47,7 @@ extern uint32_t    SystemCoreClock;
 #define configUSE_COUNTING_SEMAPHORES               0
 #define configQUEUE_REGISTRY_SIZE                   10
 #define configUSE_QUEUE_SETS                        0
-#define configUSE_TIME_SLICING                      0
+#define configUSE_TIME_SLICING                      1
 #define configSTACK_DEPTH_TYPE                      uint16_t
 #define configMESSAGE_BUFFER_LENGTH_TYPE            size_t
 #define configHEAP_CLEAR_MEMORY_ON_FREE             1
@@ -55,7 +55,7 @@ extern uint32_t    SystemCoreClock;
 #define configSUPPORT_STATIC_ALLOCATION             0
 #define configSUPPORT_DYNAMIC_ALLOCATION            1
 #define configKERNEL_PROVIDED_STATIC_MEMORY         0
-#define configTOTAL_HEAP_SIZE                       ( ( size_t ) 6 * 1024 )
+#define configTOTAL_HEAP_SIZE                       ( ( size_t ) 8 * 1024 )
 #define configAPPLICATION_ALLOCATED_HEAP            0
 #define configSTACK_ALLOCATION_FROM_SEPARATE_HEAP   0
 #define configENABLE_HEAP_PROTECTOR                 0

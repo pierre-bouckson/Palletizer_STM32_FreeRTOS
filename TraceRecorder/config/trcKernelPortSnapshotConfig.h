@@ -36,9 +36,9 @@ extern "C" {
  * check the actual usage by selecting View menu -> Trace Details ->
  * Resource Usage -> Object Table.
  */
-#define TRC_CFG_NTASK           6
+#define TRC_CFG_NTASK           10
 #define TRC_CFG_NISR            4
-#define TRC_CFG_NQUEUE          2
+#define TRC_CFG_NQUEUE          4
 #define TRC_CFG_NSEMAPHORE      6
 #define TRC_CFG_NMUTEX          2
 #define TRC_CFG_NTIMER          1

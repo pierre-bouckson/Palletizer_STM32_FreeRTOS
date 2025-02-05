@@ -29,21 +29,21 @@
 
 #include <stdarg.h>
 #include "stm32f0xx.h"
+#include "main.h"
 
 static void printchar(char **str, int c)
 {
-
-
 	if (str) {
-		**str = c;
-		++(*str);
+		**str = c ;
+		++(*str) ;
 	}
 	else
 	{
-		while ( (USART2->ISR & USART_ISR_TC) != USART_ISR_TC);
-		USART2->TDR = c;
+		while ( (USART2->ISR & USART_ISR_TC) != USART_ISR_TC); //  Polling TC
+		USART2->TDR = c ;
 	}
 }
+
 
 #define PAD_RIGHT 1
 #define PAD_ZERO 2

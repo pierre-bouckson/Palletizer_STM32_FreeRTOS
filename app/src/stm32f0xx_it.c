@@ -1,22 +1,22 @@
 /**
-  ******************************************************************************
-  * @file    Templates/Src/stm32f0xx_it.c 
-  * @author  MCD Application Team
-  * @brief   Main Interrupt Service Routines.
-  *          This file provides template for all exceptions handler and 
-  *          peripherals interrupt service routine.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2016 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    Templates/Src/stm32f0xx_it.c
+ * @author  MCD Application Team
+ * @brief   Main Interrupt Service Routines.
+ *          This file provides template for all exceptions handler and
+ *          peripherals interrupt service routine.
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2016 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -24,12 +24,12 @@
 
 
 /** @addtogroup STM32F0xx_HAL_Examples
-  * @{
-  */
+ * @{
+ */
 
 /** @addtogroup Templates
-  * @{
-  */
+ * @{
+ */
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -43,53 +43,53 @@
 /******************************************************************************/
 
 /**
-  * @brief  This function handles NMI exception.
-  * @param  None
-  * @retval None
-  */
+ * @brief  This function handles NMI exception.
+ * @param  None
+ * @retval None
+ */
 void NMI_Handler(void)
 {
 }
 
 /**
-  * @brief  This function handles Hard Fault exception.
-  * @param  None
-  * @retval None
-  */
+ * @brief  This function handles Hard Fault exception.
+ * @param  None
+ * @retval None
+ */
 void HardFault_Handler(void)
 {
-  /* Go to infinite loop when Hard Fault exception occurs */
-  while (1)
-  {
-  }
+	/* Go to infinite loop when Hard Fault exception occurs */
+	while (1)
+	{
+	}
 }
 
 /**
-  * @brief  This function handles SVCall exception.
-  * @param  None
-  * @retval None
-  */
+ * @brief  This function handles SVCall exception.
+ * @param  None
+ * @retval None
+ */
 //void SVC_Handler(void)
 //{
 //}
 
 /**
-  * @brief  This function handles PendSVC exception.
-  * @param  None
-  * @retval None
-  */
+ * @brief  This function handles PendSVC exception.
+ * @param  None
+ * @retval None
+ */
 //void PendSV_Handler(void)
 //{
 //}
 
 /**
-  * @brief  This function handles SysTick Handler.
-  * @param  None
-  * @retval None
-  */
+ * @brief  This function handles SysTick Handler.
+ * @param  None
+ * @retval None
+ */
 //void SysTick_Handler(void)
 //{
-  //HAL_IncTick();
+//HAL_IncTick();
 //}
 
 /******************************************************************************/
@@ -101,8 +101,8 @@ void HardFault_Handler(void)
 
 
 /**
-  * This function handles EXTI line 13 interrupt request.
-  */
+ * This function handles EXTI line 13 interrupt request.
+ */
 extern xSemaphoreHandle xSem;
 
 void EXTI4_15_IRQHandler()
@@ -118,13 +118,8 @@ void EXTI4_15_IRQHandler()
 		// Release the semaphore
 		xSemaphoreGiveFromISR(xSem, &xHigherPriorityTaskWoken);
 
-	    // Perform a context switch to the waiting task
-	    portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
 	}
 }
-
-
-
 
 extern uint8_t timebase_irq;
 
@@ -142,44 +137,21 @@ void TIM6_DAC_IRQHandler()
 }
 
 
-
-
-
-extern uint8_t  console_rx_byte[10];
-extern uint8_t	console_rx_irq;
-
-void USART2_IRQHandler()
-{
-	// Test for RXNE pending interrupt
-	if ((USART2->ISR & USART_ISR_RXNE) == USART_ISR_RXNE)
-	{
-		// RXNE flags automatically clears when reading RDR.
-
-		// Store incoming byte
-		console_rx_byte[console_rx_irq] = USART2->RDR;
-		console_rx_irq++;
-	}
-}
-
-
-extern uint8_t	rx_dma_irq;
+extern xSemaphoreHandle xSem_DMA_TC;
 void DMA1_Channel4_5_6_7_IRQHandler()
 {
-	// Test for Channel 5 Half Transfer
-	if ((DMA1->ISR & DMA_ISR_HTIF5) == DMA_ISR_HTIF5)
-	{
-		// Clear the interrupt pending bit
-		DMA1->IFCR |= DMA_IFCR_CHTIF5;
-		// Set global variable
-		rx_dma_irq = 1;
-	}
+	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+
 	// Test for Channel 5 Transfer Complete
-	if ((DMA1->ISR & DMA_ISR_TCIF5) == DMA_ISR_TCIF5)
+	if ((DMA1->ISR & DMA_ISR_TCIF4) == DMA_ISR_TCIF4)
 	{
 		// Clear the interrupt pending bit
-		DMA1->IFCR |= DMA_IFCR_CTCIF5;
-		// Set global variable
-		rx_dma_irq = 2;
+		DMA1->IFCR |= DMA_IFCR_CTCIF4;
+
+		xSemaphoreGiveFromISR(xSem_DMA_TC, &xHigherPriorityTaskWoken);
+
+		portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+
 	}
 }
 
