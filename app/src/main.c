@@ -9,18 +9,10 @@
 #include "factory_io.h"
 #include <string.h>
 
-uint8_t timebase_irq;
-uint8_t  console_rx_byte[10];
-uint8_t	console_rx_irq;
-uint8_t	rx_dma_irq;
-uint8_t	rtc_irq;
 uint8_t tx_dma_buffer[50];
 
 
-uint8_t N = 4;
-
-#define SENSOR_TABLE_SIZE 2
-uint8_t sensor[SENSOR_TABLE_SIZE];
+uint8_t N = 5;
 
 // Static functions
 static void SystemClock_Config	(void);
@@ -34,12 +26,15 @@ void Task_Write		(void *pvParameters);
 
 xQueueHandle xSubscribeQueue;
 xQueueHandle xComQueue;
-xSemaphoreHandle xSem;
 xSemaphoreHandle xSem1;
 xSemaphoreHandle xSem2;
 xSemaphoreHandle xSem3;
+xSemaphoreHandle xSemT3;
 xSemaphoreHandle xSem_UART_TC;
 xSemaphoreHandle xSem_DMA_TC;
+xSemaphoreHandle xSemOpen;
+xSemaphoreHandle xSemDes;
+xSemaphoreHandle xSemReady;
 
 xTaskHandle			vTask1_handle;
 xTaskHandle			vTask2_handle;
@@ -48,7 +43,7 @@ typedef struct
 {
 	xSemaphoreHandle *xSem;
 	uint32_t sensor_id; // Awaited sensor ID
-	uint32_t sensor_state; // Awaited sensor State
+	uint8_t sensor_state; // Awaited sensor State
 
 }subscribe_message_t;
 
@@ -59,15 +54,6 @@ typedef struct{
 
 }command_message_t;
 
-// Kernel objects
-EventGroupHandle_t myEventGroup;               // <-- Declare Event Group here
-
-// Define Event Group flags
-//#define	BIT0	( (EventBits_t)( 0x01 <<0) )   // This is not mandatory but it provides
-///#define BIT1	( (EventBits_t)( 0x01 <<1) )   // friendly alias for individual event
-
-// Trace User Events Channels
-traceString ue1;
 
 // Main function
 int main()
@@ -92,30 +78,38 @@ int main()
 	// Start Trace Recording
 	xTraceEnable(TRC_START);
 	// Create Semaphore object (this is not a 'give')
-	xSem = xSemaphoreCreateBinary();
+
 	xSem1 = xSemaphoreCreateBinary();
 	xSem2 = xSemaphoreCreateBinary();
 	xSem3 = xSemaphoreCreateBinary();
+	xSemT3 = xSemaphoreCreateBinary();
+	xSemOpen = xSemaphoreCreateBinary();
+	xSemDes = xSemaphoreCreateBinary();
 	xSem_UART_TC = xSemaphoreCreateBinary();
 	xSem_DMA_TC = xSemaphoreCreateBinary();
+	xSemReady = xSemaphoreCreateBinary();
 
-	xSubscribeQueue = xQueueCreate(4, sizeof(subscribe_message_t));
-	xComQueue = xQueueCreate(4, sizeof(command_message_t));
+
+	xSubscribeQueue = xQueueCreate(6, sizeof(subscribe_message_t));
+	xComQueue = xQueueCreate(6, sizeof(command_message_t));
 
 	vTraceSetQueueName(xComQueue, "Write Queue");
 
 	// Give a nice name to the Semaphore in the trace recorder
 	vTraceSetSemaphoreName(xSem1, "xSEM1");
 	vTraceSetSemaphoreName(xSem2, "xSEM2");
+	vTraceSetSemaphoreName(xSem3, "xSEM3");
+	vTraceSetSemaphoreName(xSemT3, "xSEMT3");
+
 	vTraceSetSemaphoreName(xSem_UART_TC, "xSem_UART_TC");
 	vTraceSetSemaphoreName(xSem_DMA_TC, "xSem_DMA_TC");
 
 	// Create Tasks
-	xTaskCreate(vTask1, "Task_1", 256, NULL, 2, &vTask1_handle);
+	xTaskCreate(vTask1, "Task_1", 256, NULL, 3, &vTask1_handle);
 	xTaskCreate(vTask2, "Task_2", 256, NULL, 1, &vTask2_handle);
-	xTaskCreate(vTask3, "Task_3", 256, NULL, 1, &vTask3_handle);
-	xTaskCreate(Task_Pub, "Task_Pub", 256, NULL, 3, NULL);
-	xTaskCreate(Task_Write, "Task_Write", 256, NULL, 4, NULL);
+	xTaskCreate(vTask3, "Task_3", 256, NULL, 2, &vTask3_handle);
+	xTaskCreate(Task_Pub, "Task_Pub", 256, NULL, 4, NULL);
+	xTaskCreate(Task_Write, "Task_Write", 256, NULL, 5, NULL);
 	// Start the Scheduler
 	vTaskStartScheduler();
 
@@ -168,14 +162,7 @@ void vTask1 (void *pvParameters)
 		message.on_off = 0;
 		xQueueSendToBack(xComQueue, &message, 0);
 
-		msg.xSem = &xSem1;
-		msg.sensor_id = entre_pal;  //ID du capteur
-		msg.sensor_state = 0; //Etat Attendu
-		xQueueSendToBack(xSubscribeQueue, &msg, 0);
-
-		xSemaphoreTake(xSem1,portMAX_DELAY);
-
-		vTaskDelay(2000);
+		xTaskNotifyGive(vTask3_handle);
 
 		msg.xSem = &xSem1;
 		msg.sensor_id = entre_pal;  //ID du capteur
@@ -184,7 +171,16 @@ void vTask1 (void *pvParameters)
 
 		xSemaphoreTake(xSem1,portMAX_DELAY);
 
-		xTaskNotifyGive(vTask2_handle);
+		vTaskDelay(1000);
+
+		msg.xSem = &xSem1;
+		msg.sensor_id = entre_pal;  //ID du capteur
+		msg.sensor_state = 0; //Etat Attendu
+		xQueueSendToBack(xSubscribeQueue, &msg, 0);
+
+		xSemaphoreTake(xSem1,portMAX_DELAY);
+
+		xSemaphoreGive(xSemReady);
 
 		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
@@ -196,18 +192,21 @@ void vTask2 (void *pvParameters)
 {
 
 	command_message_t message2;
-	subscribe_message_t msg2;
 	uint8_t count = 0;
 
 	message2.cmd = charger_palettiseur | BEP;
 	message2.on_off = 1;
 	xQueueSendToBack(xComQueue, &message2, 0);
 
+	message2.cmd = porte;
+	message2.on_off = 0;
+	xQueueSendToBack(xComQueue, &message2, 0);
+
 	while(1)
 	{
 
 
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		xSemaphoreTake(xSemReady,portMAX_DELAY);
 
 		message2.cmd = BEP ;
 		message2.on_off = 0;
@@ -235,16 +234,43 @@ void vTask2 (void *pvParameters)
 
 		vTaskDelay(2000);
 
-		if(count < 3)
+		if(count < 2)
 		{
 			count++;
 		}else
 		{
 			message2.cmd = clamp;
+			message2.on_off = 1;
+			xQueueSendToBack(xComQueue, &message2, 0);
+
+			xSemaphoreTake(xSemT3,portMAX_DELAY);
+
+			vTaskDelay(100);
+
+			message2.cmd = porte;
+			message2.on_off = 1;
+			xQueueSendToBack(xComQueue, &message2, 0);
+
+			vTaskDelay(1000);
+
+			message2.cmd = clamp;
 			message2.on_off = 0;
 			xQueueSendToBack(xComQueue, &message2, 0);
 
-			vTaskDelay(500000000);
+			vTaskDelay(1000);
+
+			xSemaphoreGive(xSemOpen);
+
+			vTaskDelay(1000);
+
+			xSemaphoreTake(xSemDes,portMAX_DELAY);
+
+			message2.cmd = porte;
+			message2.on_off = 0;
+			xQueueSendToBack(xComQueue, &message2, 0);
+
+			count = 0;
+
 		}
 	}
 }
@@ -255,11 +281,114 @@ void vTask3 (void *pvParameters)
 	command_message_t message3;
 	subscribe_message_t msg3;
 
+	message3.cmd = tapis_PVA | tapis_DP | tapis_fin;
+	message3.on_off = 1;
+	xQueueSendToBack(xComQueue, &message3, 0);
+
+	message3.cmd = descendre_ascenseur | monter_ascenseur | ascenseur_to_limit;
+	message3.on_off = 0;
+	xQueueSendToBack(xComQueue, &message3, 0);
+
 
 	while(1)
 	{
 
 		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+		message3.cmd = distrib_palette;
+		message3.on_off = 1;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		vTaskDelay(100);
+
+		message3.cmd = distrib_palette;
+		message3.on_off = 0;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		message3.cmd = charger_palette;
+		message3.on_off = 1;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		msg3.xSem = &xSem3;
+		msg3.sensor_id = entree_palette;  //ID du capteur
+		msg3.sensor_state = 1; //Etat Attendu
+		xQueueSendToBack(xSubscribeQueue, &msg3, 0);
+
+		vTaskDelay(100);
+
+		xSemaphoreTake(xSem3,portMAX_DELAY);
+
+		msg3.xSem = &xSem3;
+		msg3.sensor_id = entree_palette;  //ID du capteur
+		msg3.sensor_state = 0; //Etat Attendu
+		xQueueSendToBack(xSubscribeQueue, &msg3, 0);
+
+		xSemaphoreTake(xSem3,portMAX_DELAY);
+
+		message3.cmd = charger_palette;
+		message3.on_off = 0;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		message3.cmd = monter_ascenseur;
+		message3.on_off = 1;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		vTaskDelay(100);
+
+		message3.cmd = ascenseur_to_limit;
+		message3.on_off = 1;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		vTaskDelay(100);
+
+
+		xSemaphoreGive(xSemT3);
+
+		xSemaphoreTake(xSemOpen,portMAX_DELAY);
+
+		message3.cmd = ascenseur_to_limit | monter_ascenseur;
+		message3.on_off = 0;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+
+		message3.cmd = descendre_ascenseur;
+		message3.on_off = 1;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		vTaskDelay(1000);
+
+		xSemaphoreGive(xSemDes);
+
+		xSemaphoreGive(xSemT3);
+
+		xSemaphoreTake(xSemOpen,portMAX_DELAY);
+
+		vTaskDelay(100);
+
+		message3.cmd = ascenseur_to_limit;
+		message3.on_off = 1;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		vTaskDelay(100);
+
+		msg3.xSem = &xSem3;
+		msg3.sensor_id = ascenseur_mouv;  //ID du capteur
+		msg3.sensor_state = 0; //Etat Attendu
+		xQueueSendToBack(xSubscribeQueue, &msg3, 0);
+
+		xSemaphoreTake(xSem3,portMAX_DELAY);
+
+		xSemaphoreGive(xSemDes);
+
+		message3.cmd = charger_palette;
+		message3.on_off = 1;
+		xQueueSendToBack(xComQueue, &message3, 0);
+
+		vTaskDelay(2000);
+
+		message3.cmd = ascenseur_to_limit | descendre_ascenseur;
+		message3.on_off = 0;
+		xQueueSendToBack(xComQueue, &message3, 0);
 
 
 	}
@@ -280,24 +409,6 @@ void Task_Pub (void *pvParameters)
 	uint8_t i;
 	while(1)
 	{
-
-		for(i=0;i<N;i++)
-		{
-			if(tab[i].xSem != NULL)
-			{
-				if(tab[i].sensor_state == (FACTORY_IO_Sensors_Get() & tab[i].sensor_id))
-				{
-
-					xSemaphoreGive(*(tab[i].xSem));
-
-					tab[i].xSem = NULL;
-					tab[i].sensor_id = 0;
-					tab[i].sensor_state = 0;
-
-				}
-			}
-		}
-
 		xStatus = xQueueReceive(xSubscribeQueue, &message, 0);
 		exist = 0;
 
@@ -335,7 +446,33 @@ void Task_Pub (void *pvParameters)
 
 		vTaskDelayUntil (&xLastWakeTime, (200/portTICK_RATE_MS));
 
+
+		for(i=0;i<N;i++)
+		{
+			if(tab[i].xSem != NULL)
+			{
+				if((FACTORY_IO_Sensors_Get() & tab[i].sensor_id)==0 && tab[i].sensor_state==0)
+				{
+					xSemaphoreGive(*(tab[i].xSem));
+
+					tab[i].xSem = NULL;
+					tab[i].sensor_id = 0;
+					tab[i].sensor_state = 0;
+				}
+				else if (tab[i].sensor_state==1 && (FACTORY_IO_Sensors_Get() & tab[i].sensor_id)!=0)
+				{
+
+					xSemaphoreGive(*(tab[i].xSem));
+
+					tab[i].xSem = NULL;
+					tab[i].sensor_id = 0;
+					tab[i].sensor_state = 0;
+
+				}
+			}
+		}
 	}
+
 }
 
 void Task_Write(void *pvParameters)
