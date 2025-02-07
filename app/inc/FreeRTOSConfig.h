@@ -45,7 +45,7 @@ extern uint32_t    SystemCoreClock;
 #define configUSE_MUTEXES                           1
 #define configUSE_RECURSIVE_MUTEXES                 0
 #define configUSE_COUNTING_SEMAPHORES               0
-#define configQUEUE_REGISTRY_SIZE                   10
+#define configQUEUE_REGISTRY_SIZE                   0
 #define configUSE_QUEUE_SETS                        0
 #define configUSE_TIME_SLICING                      1
 #define configSTACK_DEPTH_TYPE                      uint16_t
@@ -55,7 +55,7 @@ extern uint32_t    SystemCoreClock;
 #define configSUPPORT_STATIC_ALLOCATION             0
 #define configSUPPORT_DYNAMIC_ALLOCATION            1
 #define configKERNEL_PROVIDED_STATIC_MEMORY         0
-#define configTOTAL_HEAP_SIZE                       ( ( size_t ) 8 * 1024 )
+#define configTOTAL_HEAP_SIZE                       ( ( size_t ) 8 *  1024)
 #define configAPPLICATION_ALLOCATED_HEAP            0
 #define configSTACK_ALLOCATION_FROM_SEPARATE_HEAP   0
 #define configENABLE_HEAP_PROTECTOR                 0

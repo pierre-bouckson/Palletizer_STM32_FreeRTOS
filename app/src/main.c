@@ -36,6 +36,8 @@ xSemaphoreHandle xSemOpen;
 xSemaphoreHandle xSemDes;
 xSemaphoreHandle xSemReady;
 
+uint32_t	free_heap_size;
+
 xTaskHandle			vTask1_handle;
 xTaskHandle			vTask2_handle;
 xTaskHandle			vTask3_handle;
@@ -132,9 +134,11 @@ void vTask1 (void *pvParameters)
 	message.on_off = 1;
 	xQueueSendToBack(xComQueue, &message, 0);
 
+
+
 	while(1)
 	{
-
+		//Distribue un carton
 		message.cmd = distribution_carton;
 		message.on_off = 1;
 		xQueueSendToBack(xComQueue, &message, 0);
@@ -145,6 +149,8 @@ void vTask1 (void *pvParameters)
 		message.on_off = 0;
 		xQueueSendToBack(xComQueue, &message, 0);
 
+
+		//Attend que le carton envoyer passe le capteur
 		msg.xSem = &xSem1;
 		msg.sensor_id = carton_envoye;  //ID du capteur
 		msg.sensor_state = 0; //Etat Attendu
@@ -152,6 +158,7 @@ void vTask1 (void *pvParameters)
 
 		xSemaphoreTake(xSem1,portMAX_DELAY);
 
+		//Distribue un carton
 		message.cmd = distribution_carton;
 		message.on_off = 1;
 		xQueueSendToBack(xComQueue, &message, 0);
@@ -162,8 +169,11 @@ void vTask1 (void *pvParameters)
 		message.on_off = 0;
 		xQueueSendToBack(xComQueue, &message, 0);
 
+		//Notifie Task3
 		xTaskNotifyGive(vTask3_handle);
 
+
+		//Attente 2 carton au capteur "entre palettiseur"
 		msg.xSem = &xSem1;
 		msg.sensor_id = entre_pal;  //ID du capteur
 		msg.sensor_state = 0; //Etat Attendu
@@ -180,9 +190,13 @@ void vTask1 (void *pvParameters)
 
 		xSemaphoreTake(xSem1,portMAX_DELAY);
 
+		//Annonce a la tache 2 que nos carton sont prêts
 		xSemaphoreGive(xSemReady);
 
+		//Attend la notification de la tache 2 pour recommencer la cycle
 		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+
 
 	}
 
@@ -202,12 +216,15 @@ void vTask2 (void *pvParameters)
 	message2.on_off = 0;
 	xQueueSendToBack(xComQueue, &message2, 0);
 
+
+
 	while(1)
 	{
 
-
+		//Attend le semaphore de la Task1
 		xSemaphoreTake(xSemReady,portMAX_DELAY);
 
+		//Ouvre la barrière
 		message2.cmd = BEP ;
 		message2.on_off = 0;
 		xQueueSendToBack(xComQueue, &message2, 0);
@@ -218,8 +235,10 @@ void vTask2 (void *pvParameters)
 		message2.on_off = 1;
 		xQueueSendToBack(xComQueue, &message2, 0);
 
+		//Notifie la Task1 que il peut renvoyer 2 cartons
 		xTaskNotifyGive(vTask1_handle);
 
+		//Active le poussoir et met 2 carton sur la porte
 		message2.cmd = poussoir;
 		message2.on_off = 1;
 		xQueueSendToBack(xComQueue, &message2, 0);
@@ -234,19 +253,25 @@ void vTask2 (void *pvParameters)
 
 		vTaskDelay(2000);
 
-		if(count < 2)
+
+		//Deux possibilité soit count, la variable qui compte combien de paire de carton sont present sur la porte
+
+		if(count < 2) // SI PAS 3 PAIRE -> recommence le cycle et count++
 		{
 			count++;
-		}else
+		}else // SI 3 PAIRE :
 		{
+			//Clamp
 			message2.cmd = clamp;
 			message2.on_off = 1;
 			xQueueSendToBack(xComQueue, &message2, 0);
 
+			//Attend le semaphore de la tache 3 qui annonce que l'ascensseur est pret a recevoir les cartons
 			xSemaphoreTake(xSemT3,portMAX_DELAY);
 
 			vTaskDelay(100);
 
+			//Ouvre la porte
 			message2.cmd = porte;
 			message2.on_off = 1;
 			xQueueSendToBack(xComQueue, &message2, 0);
@@ -259,19 +284,24 @@ void vTask2 (void *pvParameters)
 
 			vTaskDelay(1000);
 
+			//Donne le semaphore a la Tache 3 qui annonce que les colis sont deposse
 			xSemaphoreGive(xSemOpen);
 
 			vTaskDelay(1000);
 
+			//Attend que l'ascensseur soit descendu
 			xSemaphoreTake(xSemDes,portMAX_DELAY);
 
+			//Ferme la porte
 			message2.cmd = porte;
 			message2.on_off = 0;
 			xQueueSendToBack(xComQueue, &message2, 0);
 
+			//count = 0
 			count = 0;
 
 		}
+
 	}
 }
 
@@ -293,8 +323,10 @@ void vTask3 (void *pvParameters)
 	while(1)
 	{
 
+		//Attend la notification de la tache 1
 		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
+		//Distribue 1 palette
 		message3.cmd = distrib_palette;
 		message3.on_off = 1;
 		xQueueSendToBack(xComQueue, &message3, 0);
@@ -305,6 +337,7 @@ void vTask3 (void *pvParameters)
 		message3.on_off = 0;
 		xQueueSendToBack(xComQueue, &message3, 0);
 
+		//Met la palette sur l'ascensseur
 		message3.cmd = charger_palette;
 		message3.on_off = 1;
 		xQueueSendToBack(xComQueue, &message3, 0);
@@ -329,6 +362,7 @@ void vTask3 (void *pvParameters)
 		message3.on_off = 0;
 		xQueueSendToBack(xComQueue, &message3, 0);
 
+		//Monte l'ascensseur
 		message3.cmd = monter_ascenseur;
 		message3.on_off = 1;
 		xQueueSendToBack(xComQueue, &message3, 0);
@@ -341,30 +375,35 @@ void vTask3 (void *pvParameters)
 
 		vTaskDelay(100);
 
-
+		//Informe la tache 2 que l'ascensseur est pret a acceuillir les cartons
 		xSemaphoreGive(xSemT3);
 
+		//Attend que les cartons soit sur la palette
 		xSemaphoreTake(xSemOpen,portMAX_DELAY);
 
 		message3.cmd = ascenseur_to_limit | monter_ascenseur;
 		message3.on_off = 0;
 		xQueueSendToBack(xComQueue, &message3, 0);
 
-
+		//Descend ascensseur
 		message3.cmd = descendre_ascenseur;
 		message3.on_off = 1;
 		xQueueSendToBack(xComQueue, &message3, 0);
 
 		vTaskDelay(1000);
 
+		//Informe la tache 2 que l'ascensseur descend au 2nd etage
 		xSemaphoreGive(xSemDes);
 
+		//Informe la tache 2 que l'ascensseur est pret a acceuillir les cartons
 		xSemaphoreGive(xSemT3);
 
+		//Attend que les cartons soit sur la palette
 		xSemaphoreTake(xSemOpen,portMAX_DELAY);
 
 		vTaskDelay(100);
 
+		//Descend l'ascensseur au RDC
 		message3.cmd = ascenseur_to_limit;
 		message3.on_off = 1;
 		xQueueSendToBack(xComQueue, &message3, 0);
@@ -378,8 +417,10 @@ void vTask3 (void *pvParameters)
 
 		xSemaphoreTake(xSem3,portMAX_DELAY);
 
+		//Informe la tache 2 que l'ascensseur descend au RDC
 		xSemaphoreGive(xSemDes);
 
+		//Descharge la palette
 		message3.cmd = charger_palette;
 		message3.on_off = 1;
 		xQueueSendToBack(xComQueue, &message3, 0);
@@ -487,6 +528,8 @@ void Task_Write(void *pvParameters)
 
 	// Enable EXTI line 4 to 15 (user button on line 13) interrupts
 	NVIC_EnableIRQ(DMA1_Channel4_5_6_7_IRQn);
+
+	free_heap_size = xPortGetFreeHeapSize();
 
 	while(1)
 	{
