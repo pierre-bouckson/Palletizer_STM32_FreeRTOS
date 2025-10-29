@@ -117,11 +117,11 @@ Additional tasks (e.g., `vTask2`, `vTask3`) manage pallet handling, stacking, an
 ---
 
 ## **Features**
-✅ Real-time control with FreeRTOS  
-✅ Full-duplex UART communication via DMA  
-✅ Modular architecture (BSP / Application / Communication layers)  
-✅ Synchronization using FreeRTOS semaphores and task notifications  
-✅ Simulation coupling with Factory I/O  
+- Real-time control with FreeRTOS  
+- Full-duplex UART communication via DMA  
+- Modular architecture (BSP / Application / Communication layers)  
+- Synchronization using FreeRTOS semaphores and task notifications  
+- Simulation coupling with Factory I/O  
 
 ---
 
